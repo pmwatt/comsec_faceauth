@@ -13,5 +13,5 @@
      - `username="prachnachai"`
      - `password="no"`
  - Install dependencies
-   - `pip install cv2 pickle numpy mysql-connector-python os dotenv`
+   - `pip install opencv-python pickle numpy mysql-connector-python os dotenv`
  - Run `python faceauth-app.py`
