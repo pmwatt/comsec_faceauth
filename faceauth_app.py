@@ -42,10 +42,10 @@ def capture_face():
             cv2.imshow('Capture Face', frame)
 
             # Wait for the user to press 'Enter' to capture the face
-            if cv2.waitKey(1) & 0xFF == 13:
-                cap.release()
-                cv2.destroyAllWindows()
-                return face_data
+            # if cv2.waitKey(1) & 0xFF == 13:
+            #     cap.release()
+            #     cv2.destroyAllWindows()
+            #     return face_data
 
             # Wait for the user to press 'Esc' to exit
             if cv2.waitKey(1) & 0xFF == 27:
