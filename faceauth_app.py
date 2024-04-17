@@ -1,9 +1,14 @@
+from flask import Flask, render_template, redirect, url_for, request
 import cv2
-import pickle
 import numpy as np
 import mysql.connector
 import os
 from dotenv import load_dotenv
+import torch
+from scipy import spatial
+from facenet_pytorch import InceptionResnetV1
+
+app = Flask(__name__)
 
 # MySQL connection details
 db = mysql.connector.connect(
@@ -12,6 +17,9 @@ db = mysql.connector.connect(
     password=os.getenv('password'),
     database=os.getenv('database'),
 )
+
+# Load the pre-trained FaceNet model
+facenet_model = InceptionResnetV1(pretrained='vggface2').eval()
 
 # Function to capture and store facial data
 def capture_face():
@@ -30,22 +38,24 @@ def capture_face():
             if len(faces) > 0:
                 # Normalize the face image and convert it to a numpy array
                 x, y, w, h = faces[0]
-                face_img = gray[y:y+h, x:x+w]
-                face_img = cv2.resize(face_img, (100, 100))
-                face_data = np.array(face_img, dtype=np.float32).flatten()
+                face_img = frame[y:y+h, x:x+w]
+                face_img = cv2.resize(face_img, (160, 160))
+                face_data = np.array(face_img, dtype=np.float32)
+                face_data = np.transpose(face_data, (2, 0, 1))  # Reorder the channels to match the expected input
+                face_data = np.expand_dims(face_data, axis=0)  # Add batch dimension
+
+                # Convert the NumPy array to a PyTorch tensor
+                face_data = torch.from_numpy(face_data)
+
+                # Use FaceNet to extract facial features
+                face_embeddings = facenet_model(face_data)[0].detach().numpy()
 
                 cap.release()
                 cv2.destroyAllWindows()
-                return face_data
+                return face_embeddings
 
             # Display the camera feed
             cv2.imshow('Capture Face', frame)
-
-            # Wait for the user to press 'Enter' to capture the face
-            # if cv2.waitKey(1) & 0xFF == 13:
-            #     cap.release()
-            #     cv2.destroyAllWindows()
-            #     return face_data
 
             # Wait for the user to press 'Esc' to exit
             if cv2.waitKey(1) & 0xFF == 27:
@@ -55,78 +65,86 @@ def capture_face():
 
 
 # Function to register a new user
-def register_user(username, face_data):
+def register_user(username, face_embeddings):
     cursor = db.cursor()
 
     try:
-        # Convert the face data to a byte string using pickle
-        print(face_data)
-        face_data_bytes = pickle.dumps(face_data)
-
-        # Insert the username and face data into the database
-        sql = "INSERT INTO users (username, face_data) VALUES (%s, %s)"
-        values = (username, face_data_bytes)
+        # Insert the username and face embeddings into the database
+        sql = "INSERT INTO users (username, face_embeddings) VALUES (%s, %s)"
+        values = (username, face_embeddings.tobytes())
         cursor.execute(sql, values)
         db.commit()
 
-        print("Registration successful!")
+        return True
     except mysql.connector.Error as error:
         print(f"Error: {error}")
         db.rollback()
+        return False
 
 # Function to authenticate the user
-def authenticate_user(username, face_data):
+def authenticate_user(username, face_embeddings):
     cursor = db.cursor()
 
     # Check if the username exists in the database
-    cursor.execute("SELECT face_data FROM users WHERE username = %s", (username,))
+    cursor.execute("SELECT face_embeddings FROM users WHERE username = %s", (username,))
     result = cursor.fetchone()
 
     if result:
         # Convert the stored byte string back to a NumPy array
-        stored_face_data = pickle.loads(result[0])
-        print(stored_face_data)
+        stored_face_embeddings = np.frombuffer(result[0], dtype=np.float32)
 
-        # Compare the captured face data with the stored face data
-        diff = cv2.norm(face_data, stored_face_data, cv2.NORM_L2)
-        print(diff)
+        # Use cosine similarity to compare the captured face embeddings with the stored face embeddings
+        similarity = 1 - spatial.distance.cosine(face_embeddings, stored_face_embeddings)
+        print('similarity: ', similarity)
 
-        if diff < 20000:
+        if similarity > 0.8:
             return True
 
     return False
 
-# Main function
-def main():
-    print("Welcome to the facial authentication system!")
-    print("Please choose an option:")
-    print("1. Login")
-    print("2. Register")
+@app.route('/', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form['username']
+        face_embeddings = capture_face()
 
-    choice = input("Enter your choice (1 or 2): ")
-
-    if choice == '1':
-        username = input("Enter your username: ")
-        face_data = capture_face()
-
-        if face_data is not None:
-            if authenticate_user(username, face_data):
-                print("Authentication successful!")
+        if face_embeddings is not None:
+            if authenticate_user(username, face_embeddings):
+                return redirect(url_for('home'))
             else:
-                print("Authentication failed.")
+                return render_template('login.html', error='Invalid login facial authentication')
         else:
-            print("Unable to capture face data.")
-    elif choice == '2':
-        username = input("Enter a new username: ")
-        face_data = capture_face()
+            return render_template('login.html', error='Unable to capture face data')
+    return render_template('login.html')
 
-        if face_data is not None:
-            register_user(username, face_data)
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        username = request.form['username']
+
+        # Check if the username already exists
+        cursor = db.cursor()
+        cursor.execute("SELECT * FROM users WHERE username = %s", (username,))
+        result = cursor.fetchone()
+
+        if result:
+            return render_template('register.html', error='Username already exists')
+
+        face_embeddings = capture_face()
+
+        if face_embeddings is not None:
+            if register_user(username, face_embeddings):
+                return redirect(url_for('login'))
+            else:
+                return render_template('register.html', error='Registration failed')
         else:
-            print("Unable to capture face data.")
-    else:
-        print("Invalid choice. Please try again.")
+            return render_template('register.html', error='Unable to capture face data')
+    return render_template('register.html')
 
-if __name__ == "__main__":
+@app.route('/home')
+def home():
+    return render_template('home.html')
+
+if __name__ == '__main__':
     load_dotenv(override=True)
-    main()
+    app.run(debug=True)
