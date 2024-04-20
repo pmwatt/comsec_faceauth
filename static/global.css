@@ -1,0 +1,29 @@
+/* Global Styles */
+body {
+    font-family: 'Segoe UI Semibold';
+    margin: 0;
+    padding: 0;
+    color: rgb(41, 41, 41);
+    background-image: url('/static/bg.jpg');
+    background-size: cover;
+    background-repeat: no-repeat;
+    background-position: center;
+}
+
+.container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    background-image: url('/static/bg.jpg');
+    background-size: cover;
+    background-repeat: no-repeat;
+    background-position: center;
+}
+
+input:focus,
+select:focus,
+textarea:focus,
+button:focus {
+    outline: none;
+}

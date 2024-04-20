@@ -5,63 +5,59 @@ import mysql.connector
 import os
 from dotenv import load_dotenv
 import torch
-from scipy import spatial
+from scipy.spatial.distance import cosine
 from facenet_pytorch import InceptionResnetV1
+from mtcnn import MTCNN
 
 app = Flask(__name__)
 
+# Load environment variables
+load_dotenv()
+
 # MySQL connection details
 db = mysql.connector.connect(
-    host=os.getenv('host'),
-    user=os.getenv('username'),
-    password=os.getenv('password'),
-    database=os.getenv('database'),
+    host=os.environ.get('host'),
+    user=os.environ.get('username'),
+    password=os.environ.get('password'),
+    database=os.environ.get('database'),
 )
 
 # Load the pre-trained FaceNet model
 facenet_model = InceptionResnetV1(pretrained='vggface2').eval()
 
+# Initialize MTCNN for face detection and alignment
+detector = MTCNN()
+
 # Function to capture and store facial data
 def capture_face():
     cap = cv2.VideoCapture(0)
-    face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
 
     while True:
         ret, frame = cap.read()
         if ret:
-            # Convert the frame to grayscale
-            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            faces = detector.detect_faces(frame)
 
-            # Detect faces in the grayscale frame
-            faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
-
-            if len(faces) > 0:
-                # Normalize the face image and convert it to a numpy array
-                x, y, w, h = faces[0]
+            if faces:
+                print('detected')
+                x, y, w, h = faces[0]['box']
                 face_img = frame[y:y+h, x:x+w]
                 face_img = cv2.resize(face_img, (160, 160))
-                face_data = np.array(face_img, dtype=np.float32)
-                face_data = np.transpose(face_data, (2, 0, 1))  # Reorder the channels to match the expected input
-                face_data = np.expand_dims(face_data, axis=0)  # Add batch dimension
-
-                # Convert the NumPy array to a PyTorch tensor
+                face_data = np.transpose(np.array(face_img, dtype=np.float32), (2, 0, 1))
+                face_data = np.expand_dims(face_data, axis=0)
                 face_data = torch.from_numpy(face_data)
 
-                # Use FaceNet to extract facial features
                 face_embeddings = facenet_model(face_data)[0].detach().numpy()
-
                 cap.release()
                 cv2.destroyAllWindows()
                 return face_embeddings
 
-            # Display the camera feed
             cv2.imshow('Capture Face', frame)
 
-            # Wait for the user to press 'Esc' to exit
             if cv2.waitKey(1) & 0xFF == 27:
                 cap.release()
                 cv2.destroyAllWindows()
                 return None
+
 
 
 # Function to register a new user
@@ -94,13 +90,17 @@ def authenticate_user(username, face_embeddings):
         stored_face_embeddings = np.frombuffer(result[0], dtype=np.float32)
 
         # Use cosine similarity to compare the captured face embeddings with the stored face embeddings
-        similarity = 1 - spatial.distance.cosine(face_embeddings, stored_face_embeddings)
+        similarity = 1 - cosine(face_embeddings, stored_face_embeddings)
         print('similarity: ', similarity)
 
-        if similarity > 0.8:
+        if similarity > 0.95:
             return True
 
     return False
+
+
+############################################
+
 
 @app.route('/', methods=['GET', 'POST'])
 def login():

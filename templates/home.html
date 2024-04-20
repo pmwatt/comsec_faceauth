@@ -1,11 +1,48 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <link rel="stylesheet" href="/static/global.css">
     <title>Home</title>
+    <style type="text/css">
+
+        /* Home Page Styles */
+        .home-container {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: rgba(0, 0, 0, 0.5);
+            color: white;
+        }
+
+        .home-container h1 {
+            font-size: 3rem;
+            margin-bottom: 20px;
+        }
+
+        .home-container p {
+            font-size: 1.5rem;
+            margin-bottom: 30px;
+        }
+
+        .home-container a {
+            color: #4CAF50;
+            text-decoration: none;
+            font-size: 1.2rem;
+            transition: color 0.3s ease;
+        }
+
+        .home-container a:hover {
+            color: #8fe493;
+        }
+    </style>
 </head>
 <body>
-    <h1>Welcome to the Home Page</h1>
-    <p>Truly one of the most home page of all time.</p>
-    <p>Logout <a href="{{ url_for('login') }}">Login</a></p>
+    <div class="home-container">
+        <h1>Welcome to the Home Page</h1>
+        <p>Truly one of the most home page of all time.</p>
+        <a href="{{ url_for('login') }}">Logout</a>
+    </div>
 </body>
 </html>
