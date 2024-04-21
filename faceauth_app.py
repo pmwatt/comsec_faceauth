@@ -8,6 +8,7 @@ import torch
 from scipy.spatial.distance import cosine
 from facenet_pytorch import InceptionResnetV1
 from mtcnn import MTCNN
+from pprint import pprint
 
 app = Flask(__name__)
 
@@ -28,6 +29,15 @@ facenet_model = InceptionResnetV1(pretrained='vggface2').eval()
 # Initialize MTCNN for face detection and alignment
 detector = MTCNN()
 
+# Function to preprocess the face image
+def preprocess_face(face_img):
+    face_img = cv2.resize(face_img, (160, 160))
+    face_img = np.transpose(np.array(face_img, dtype=np.float32), (2, 0, 1))
+    face_img = (face_img - face_img.mean()) / face_img.std()  # Normalize pixel values
+    face_img = np.expand_dims(face_img, axis=0)
+    face_img = torch.from_numpy(face_img)
+    return face_img
+
 # Function to capture and store facial data
 def capture_face():
     cap = cv2.VideoCapture(0)
@@ -38,15 +48,12 @@ def capture_face():
             faces = detector.detect_faces(frame)
 
             if faces:
-                print('detected')
                 x, y, w, h = faces[0]['box']
                 face_img = frame[y:y+h, x:x+w]
-                face_img = cv2.resize(face_img, (160, 160))
-                face_data = np.transpose(np.array(face_img, dtype=np.float32), (2, 0, 1))
-                face_data = np.expand_dims(face_data, axis=0)
-                face_data = torch.from_numpy(face_data)
+                face_data = preprocess_face(face_img)
 
                 face_embeddings = facenet_model(face_data)[0].detach().numpy()
+                pprint(face_embeddings)
                 cap.release()
                 cv2.destroyAllWindows()
                 return face_embeddings
@@ -57,7 +64,6 @@ def capture_face():
                 cap.release()
                 cv2.destroyAllWindows()
                 return None
-
 
 
 # Function to register a new user
