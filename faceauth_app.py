@@ -99,7 +99,7 @@ def authenticate_user(username, face_embeddings):
         similarity = 1 - cosine(face_embeddings, stored_face_embeddings)
         print('similarity: ', similarity)
 
-        if similarity > 0.95:
+        if similarity > 0.8:
             return True
 
     return False
