@@ -10,6 +10,11 @@ from facenet_pytorch import InceptionResnetV1
 from mtcnn import MTCNN
 from pprint import pprint
 
+# Minimum similarity between login facial embeddings and
+# facial embeddings stored in the database.
+# Feel free to adjust this.
+THRESHOLD = 0.8
+
 app = Flask(__name__)
 
 # Load environment variables
@@ -99,7 +104,7 @@ def authenticate_user(username, face_embeddings):
         similarity = 1 - cosine(face_embeddings, stored_face_embeddings)
         print('similarity: ', similarity)
 
-        if similarity > 0.8:
+        if similarity > THRESHOLD:
             return True
 
     return False

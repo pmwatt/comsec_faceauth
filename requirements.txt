@@ -1,0 +1,9 @@
+facenet_pytorch==2.5.3
+Flask==3.0.3
+mtcnn==0.1.1
+mysql_connector_repackaged==0.3.1
+numpy==2.1.1
+opencv_python==4.7.0.72
+python-dotenv==1.0.1
+scipy==1.14.1
+torch==2.2.2
