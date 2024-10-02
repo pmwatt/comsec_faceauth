@@ -1,5 +1,5 @@
 # Facial Authentication using OpenCV
-Made using VGGFace2 pretrained datasets and Inception Resnet V1 model. We set the similarity threshold between the embeddings stored in the database and the face detected during login to 0.8, but feel free to adjust.
+Made using VGGFace2 pretrained datasets and Inception Resnet V1 model ([see more](https://github.com/timesler/facenet-pytorch)). Frontend UI made using Flask, and database made using MySQL. We set the similarity threshold between the embeddings stored in the database and the face detected during login to 0.8, but feel free to adjust.
 
 ## Screenshots
 Figure 1: Login Page and invalid login
